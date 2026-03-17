@@ -1,13 +1,14 @@
 import random
 import streamlit as st
 
+#FIXME: This file contains the game logic and Streamlit UI code. The functions are defined at the top for easier testing, but they are tightly coupled with the Streamlit app state and UI. Refactoring to separate concerns would improve testability and maintainability.
 def get_range_for_difficulty(difficulty: str):
     if difficulty == "Easy":
         return 1, 20
     if difficulty == "Normal":
         return 1, 100
     if difficulty == "Hard":
-        return 1, 50
+        return 1, 200  # Fix (Bug 4): was 1-50, which made Hard easier than Normal (1-100)
     return 1, 100
 
 
@@ -28,23 +29,23 @@ def parse_guess(raw: str):
 
     return True, value, None
 
-
+#FIXME 
 def check_guess(guess, secret):
     if guess == secret:
         return "Win", "🎉 Correct!"
 
     try:
         if guess > secret:
-            return "Too High", "📈 Go HIGHER!"
+            return "Too High", "📉 Go LOWER!"  # Fix (Bug 1): was "Go HIGHER!" — direction was backwards
         else:
-            return "Too Low", "📉 Go LOWER!"
+            return "Too Low", "📈 Go HIGHER!"  # Fix (Bug 1): was "Go LOWER!" — direction was backwards
     except TypeError:
         g = str(guess)
         if g == secret:
             return "Win", "🎉 Correct!"
         if g > secret:
-            return "Too High", "📈 Go HIGHER!"
-        return "Too Low", "📉 Go LOWER!"
+            return "Too High", "📉 Go LOWER!"
+        return "Too Low", "📈 Go HIGHER!"
 
 
 def update_score(current_score: int, outcome: str, attempt_number: int):
@@ -55,9 +56,7 @@ def update_score(current_score: int, outcome: str, attempt_number: int):
         return current_score + points
 
     if outcome == "Too High":
-        if attempt_number % 2 == 0:
-            return current_score + 5
-        return current_score - 5
+        return current_score - 5  # Fix (Bug 3): was +5 on even attempts, -5 on odd — caused score oscillation
 
     if outcome == "Too Low":
         return current_score - 5
@@ -76,9 +75,10 @@ difficulty = st.sidebar.selectbox(
     ["Easy", "Normal", "Hard"],
     index=1,
 )
-
+#FIXME
 attempt_limit_map = {
-    "Easy": 6,
+    "Easy": 6
+    ,
     "Normal": 8,
     "Hard": 5,
 }
@@ -132,8 +132,8 @@ with col3:
     show_hint = st.checkbox("Show hint", value=True)
 
 if new_game:
-    st.session_state.attempts = 0
-    st.session_state.secret = random.randint(1, 100)
+    st.session_state.attempts = 1  # Fix (Bug 5): was 0, inconsistent with initialization and broke attempt-based logic
+    st.session_state.secret = random.randint(low, high)  # Fix (Bug 5): was hardcoded 1-100, now respects selected difficulty
     st.success("New game started.")
     st.rerun()
 
@@ -155,10 +155,7 @@ if submit:
     else:
         st.session_state.history.append(guess_int)
 
-        if st.session_state.attempts % 2 == 0:
-            secret = str(st.session_state.secret)
-        else:
-            secret = st.session_state.secret
+        secret = st.session_state.secret  # Fix (Bug 2): was str(secret) on even attempts, causing lexicographic comparison
 
         outcome, message = check_guess(guess_int, secret)
 
